@@ -35,3 +35,18 @@ jobs:
       - run: go vet ./...
       - if: runner.os == 'Linux'
         run: go test -race -count=20 -timeout=60s ./...
+      - if: runner.os == 'Linux' && matrix.go == '1.27.x'
+        run: go test -run='^$' -fuzz='^FuzzCheckpointReadiness$' -fuzztime=10s -parallel=2 -timeout=60s .
+
+  required:
+    name: Go CI
+    needs: test
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Require every matrix job to pass
+        env:
+          MATRIX_RESULT: ${{ needs.test.result }}
+        run: test "$MATRIX_RESULT" = success

@@ -1,0 +1,54 @@
+name: CodeQL
+
+"on":
+  pull_request:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: go
+            build-mode: autobuild
+          - language: actions
+            build-mode: none
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - if: matrix.language == 'go'
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version: "1.26.x"
+          cache: false
+      - uses: github/codeql-action/init@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+      - uses: github/codeql-action/analyze@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
+        with:
+          # GitHub's organization-managed default setup owns Security tab uploads.
+          upload: never
+          output: ${{ runner.temp }}/codeql-results
+      - name: Require a clean CodeQL scan
+        env:
+          LANGUAGE: ${{ matrix.language }}
+        run: |
+          report="$RUNNER_TEMP/codeql-results/$LANGUAGE.sarif"
+          if ! jq -e '(.runs | length > 0) and ([.runs[].results[]?] | length == 0)' "$report" >/dev/null; then
+            echo "::error::CodeQL reported findings or did not produce a valid report."
+            exit 1
+          fi
