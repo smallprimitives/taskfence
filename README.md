@@ -30,3 +30,11 @@ Cancellation affects only that waiter. If the checkpoint is already ready when
 checkpoint remains usable by other waiters.
 
 The module requires Go 1.26 and uses only the standard library.
+
+## Checkpoint bookkeeping
+
+The group tracks a count for the current batch of registrations and queues one
+entry for each distinct pending checkpoint. Identical pending checkpoints can
+share a readiness channel. An unfinished early task can keep later entries in
+the queue even after their own tasks finish. The group removes entries as their
+checkpoints become ready. Waiting and cancellation add no entries to the group.
