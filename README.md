@@ -14,12 +14,19 @@ go func() {
 }()
 
 checkpoint := group.Checkpoint()
-<-checkpoint.Done()
+if err := checkpoint.Wait(ctx); err != nil {
+    return err
+}
 ```
 
 `Done` closes when all covered tasks have called their completion functions.
 Writes made by those tasks before completion are visible after observing
-that closure. A task that waits for a checkpoint covering itself must be
+that closure or after `Wait` returns successfully. A task that waits for a checkpoint covering itself must be
 able to complete independently.
+
+`Wait(ctx)` stops waiting if the context is canceled or its deadline expires.
+Cancellation affects only that waiter. If the checkpoint is already ready when
+`Wait` checks for readiness after cancellation, it returns success. The
+checkpoint remains usable by other waiters.
 
 The module requires Go 1.26 and uses only the standard library.

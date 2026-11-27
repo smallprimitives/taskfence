@@ -1,5 +1,7 @@
 package taskfence
 
+import "context"
+
 var alreadyDone = func() <-chan struct{} {
 	done := make(chan struct{})
 	close(done)
@@ -19,4 +21,23 @@ func (c Checkpoint) Done() <-chan struct{} {
 		return alreadyDone
 	}
 	return c.done
+}
+
+// Wait waits for the checkpoint to become ready or the context to end.
+// If readiness is observable when cancellation is checked, Wait returns nil.
+// Otherwise it returns ctx.Err(). Cancellation affects only this call.
+func (c Checkpoint) Wait(ctx context.Context) error {
+	done := c.Done()
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		// If both channels are ready, select may choose cancellation.
+		select {
+		case <-done:
+			return nil
+		default:
+			return ctx.Err()
+		}
+	}
 }
